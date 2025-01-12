@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="App.Clinic.Views.AppointmentView"
+             Title="Appointment View"
+             NavigatedTo="AppointmentView_NavigatedTo"
+             >
+    <VerticalStackLayout>
+        <Label Text="Patient"/>
+        <Picker
+            ItemsSource="{Binding Patients}"
+            SelectedItem="{Binding SelectedPatient}"
+            />
+        <Label Text="Physician"/>
+        <Picker
+            ItemsSource="{Binding Physicians}"
+            SelectedItem="{Binding SelectedPhysician}"
+            />
+        <Label Text="Appointment Reason"/>
+        <Picker
+            ItemsSource="{Binding ApptReasons}"
+            SelectedItem="{Binding SelectedReason}"
+            />
+        <Label Text="Appointment Start"/>
+        <DatePicker Date="{Binding StartDate}" MinimumDate="{Binding MinStartDate}"/>
+        <TimePicker Time="{Binding StartTime}" PropertyChanged="StartTime_PropertyChanged"/>
+        <Label Text="Appointment End"/>
+        <DatePicker Date="{Binding EndDate}" MinimumDate="{Binding MinStartDate}"/>
+        <TimePicker Time="{Binding EndTime}" PropertyChanged="EndTime_PropertyChanged"/>
+        <Button Text="Confirm" Clicked="ConfirmClicked"/>
+        <Button Text="Return" Clicked="ReturnClicked"/>
+    </VerticalStackLayout>
+</ContentPage>
