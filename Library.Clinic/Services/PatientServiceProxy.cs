@@ -1,10 +1,37 @@
-﻿using Library.Clinic.Models;
+﻿using Library.Clinic.DTO;
+using Library.Clinic.Models;
+using Newtonsoft.Json;
+using PP.Library.Utilities;
 
 namespace Library.Clinic.Services
 {
-    public static class PatientServiceProxy
+    public class PatientServiceProxy
     {
-        public static int LastKey
+        private static object _lock = new object();
+        public static PatientServiceProxy Current
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    if (instance == null)
+                    {
+                        instance = new PatientServiceProxy();
+                    }
+                }
+                return instance;
+            }
+        }
+        private static PatientServiceProxy? instance;
+        private PatientServiceProxy()
+        {
+            instance = null;
+
+            var patientsData = new WebRequestHandler().Get("/Patient").Result;
+
+            Patients = JsonConvert.DeserializeObject<List<PatientDTO>>(patientsData) ?? new List<PatientDTO>();
+        }
+        public int LastKey
         {
             get
             {
@@ -15,25 +42,66 @@ namespace Library.Clinic.Services
                 return 0;
             }
         }
-        public static List<Patient> Patients { get; private set; } = new List<Patient>();
-        public static void AddPatient(Patient patient)
+        private List<PatientDTO> patients = new List<PatientDTO>();
+        public List<PatientDTO> Patients
         {
-            if (patient.Id <= 0)
+            get
             {
-                patient.Id = LastKey + 1;
+                return patients;
             }
-            Patients.Add(patient);
+
+            private set
+            {
+                if (patients != value)
+                {
+                    patients = value;
+                }
+            }
         }
-        public static void RemovePatient(int id)
+
+        public async Task<List<PatientDTO>> Search(string query)
+        {
+            var patientsPayload = await new WebRequestHandler()
+                .Post($"/Patient/Search", new Query(query));
+
+            Patients = JsonConvert.DeserializeObject<List<PatientDTO>>(patientsPayload) 
+                ?? new List<PatientDTO>();
+
+            return Patients;
+        }
+
+        public async Task<PatientDTO?> AddOrUpdatePatient(PatientDTO patient)
+        {
+            var payload = await new WebRequestHandler().Post("/Patient", patient);
+            var newPatient = JsonConvert.DeserializeObject<PatientDTO>(payload);
+            if (newPatient != null && newPatient.Id > 0 && patient.Id == 0)
+            {
+                Patients.Add(newPatient);
+            }
+            else if(newPatient != null && patient != null && patient.Id > 0 && patient.Id == newPatient.Id)
+            {
+                var currentPatient = Patients.FirstOrDefault(p => p.Id == newPatient.Id);
+                var index = Patients.Count;
+                if(currentPatient != null)
+                {
+                    index = Patients.IndexOf(currentPatient);
+                    Patients.RemoveAt(index);
+                }
+                Patients.Insert(index, newPatient);
+            }
+            return newPatient;
+        }
+        public async void RemovePatient(int id)
         {
             var patientToRemove = Patients.FirstOrDefault(p => p.Id == id);
             if (patientToRemove != null)
             {
                 Patients.Remove(patientToRemove);
+                await new WebRequestHandler().Delete($"/Patient/{id}");
             }
         }
 
-        public static void AddPatientNotes(int id, string note)
+        public void AddPatientNotes(int id, string note)
         {
 
             if (id >= 1 && Patients.Any())
@@ -50,22 +118,6 @@ namespace Library.Clinic.Services
             {
                 Console.WriteLine("An error occurred when trying to add patient's note, please try again...");
             }
-
         }
-
-        public static void printList()
-        {
-            Console.WriteLine("Current Patient List: \n");
-            foreach (var patient in Patients)
-            {
-                Console.WriteLine($"Patient ID: {patient.Id}");
-                Console.WriteLine($"Patient Name: {patient.Name}");
-                Console.WriteLine($"Patient Birthday: {patient.Birthday}");
-                Console.WriteLine($"Patient SSN: {patient.SSN}");
-                Console.WriteLine($"Patient Address: {patient.Address}\n");
-            }
-        }
-
-
     }
 }

@@ -1,8 +1,13 @@
-﻿using Library.Clinic.DTO;
+﻿using Library.Clinic.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
-namespace Library.Clinic.Models
+namespace Library.Clinic.DTO
 {
-    public class Patient
+    public class PatientDTO
     {
         public override string ToString()
         {
@@ -22,7 +27,7 @@ namespace Library.Clinic.Models
         public string? Address { get; set; }
         public string? SSN { get; set; }
         public Insurance? InsurancePlan { get; set; }
-        public Patient()
+        public PatientDTO()
         {
             Name = string.Empty;
             Address = string.Empty;
@@ -30,14 +35,13 @@ namespace Library.Clinic.Models
             SSN = string.Empty;
         }
 
-        public Patient(PatientDTO p)
+        public PatientDTO(Patient p)
         {
             Id = p.Id;
             Name = p.Name;
             Address = p.Address;
             Birthday = p.Birthday;
             SSN = p.SSN;
-            InsurancePlan = p.InsurancePlan;
         }
     }
 }

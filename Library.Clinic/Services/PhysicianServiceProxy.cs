@@ -1,10 +1,38 @@
-﻿using Library.Clinic.Models;
+﻿using Library.Clinic.DTO;
+using Library.Clinic.Models;
+using Newtonsoft.Json;
+using PP.Library.Utilities;
+using System.ComponentModel;
 
 namespace Library.Clinic.Services
 {
-    public static class PhysicianServiceProxy
+    public class PhysicianServiceProxy
     {
-        public static int LastKey
+        private static object _lock = new object();
+        public static PhysicianServiceProxy Current
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    if (instance == null)
+                    {
+                        instance = new PhysicianServiceProxy();
+                    }
+                }
+                return instance;
+            }
+        }
+        private static PhysicianServiceProxy? instance;
+        private PhysicianServiceProxy()
+        {
+            instance = null;
+
+            var physiciansData = new WebRequestHandler().Get("/Physician").Result;
+
+            Physicians = JsonConvert.DeserializeObject<List<PhysicianDTO>>(physiciansData) ?? new List<PhysicianDTO>();
+        }
+        public int LastKey
         {
             get
             {
@@ -15,25 +43,88 @@ namespace Library.Clinic.Services
                 return 0;
             }
         }
-        public static List<Physician> Physicians { get; private set; } = new List<Physician>();
-        public static void AddPhysician(Physician physician)
+        private List<PhysicianDTO> physicians;
+        public List<PhysicianDTO> Physicians
         {
-            if (physician.Id <= 0)
+            get
             {
-                physician.Id = LastKey + 1;
+                return physicians;
             }
-            Physicians.Add(physician);
+
+            private set
+            {
+                if (physicians != value)
+                {
+                    physicians = value;
+                }
+            }
         }
-        public static void RemovePhysician(int id)
+        public async Task<PhysicianDTO?> AddOrUpdatePhysician(PhysicianDTO physician)
+        {
+            {
+                string endpoint;
+                if (physician.Id == 0)
+                {
+                    endpoint = "/Physician";
+                }
+                else
+                {
+                    endpoint = "/Physician/UpdatePhysician";
+                }
+
+                var payload = await new WebRequestHandler().Post(endpoint, physician);
+                var newPhysician = JsonConvert.DeserializeObject<PhysicianDTO>(payload);
+
+                if (newPhysician != null)
+                {
+                    if (physician.Id == 0)
+                    {
+                        Physicians.Add(newPhysician);
+                    }
+                    else
+                    {
+                        var index = Physicians.FindIndex(p => p.Id == newPhysician.Id);
+                        if (index >= 0)
+                        {
+                            Physicians[index] = newPhysician;
+                        }
+                    }
+                }
+
+                return newPhysician;
+            }
+            /*
+            var payload = await new WebRequestHandler().Post("/Physician", physician);
+            var newPhysician = JsonConvert.DeserializeObject<PhysicianDTO>(payload);
+            if (newPhysician != null && newPhysician.Id > 0 && physician.Id == 0)
+            {
+                Physicians.Add(newPhysician);
+            }
+            else if (newPhysician != null && physician != null && physician.Id > 0 && physician.Id == newPhysician.Id)
+            {
+                var currentPhysician = Physicians.FirstOrDefault(p => p.Id == newPhysician.Id);
+                var index = Physicians.Count;
+                if (currentPhysician != null)
+                {
+                    index = Physicians.IndexOf(currentPhysician);
+                    Physicians.RemoveAt(index);
+                }
+                Physicians.Insert(index, newPhysician);
+            }
+            return newPhysician;
+            */
+        }
+        public async void RemovePhysician(int id)
         {
             var physicianToRemove = Physicians.FirstOrDefault(p => p.Id == id);
             if (physicianToRemove != null)
             {
                 Physicians.Remove(physicianToRemove);
+                await new WebRequestHandler().Delete($"/Physician/{id}");
             }
         }
 
-        public static void AddPhysicianSpecialization(int id, string specialization)
+        public void AddPhysicianSpecialization(int id, string specialization)
         {
 
             if (id >= 1 && id <= LastKey && Physicians.Any())
@@ -54,18 +145,24 @@ namespace Library.Clinic.Services
 
         }
 
-        public static void printList()
+        public async Task<List<PhysicianDTO>> Search(string query)
         {
-            Console.WriteLine("Current Physician List: \n");
-            foreach (var physician in Physicians)
+            string? physicianPayload;
+            if (query == string.Empty)
             {
-                Console.WriteLine($"Physician ID: {physician.Id}");
-                Console.WriteLine($"Physician License: #{physician.License}");
-                Console.WriteLine($"Physician Name: {physician.Name}");
-                Console.WriteLine($"Physician Graduation Date: {physician.Graduation}\n");
+                physicianPayload = await new WebRequestHandler().Get("/Physician");
             }
-        }
+            else
+            {
+                physicianPayload = await new WebRequestHandler()
+                .Post($"/Physician/Search", new Query(query));
+            }
 
+            Physicians = JsonConvert.DeserializeObject<List<PhysicianDTO>>(physicianPayload)
+                ?? new List<PhysicianDTO>();
+
+            return Physicians;
+        }
 
     }
 }
